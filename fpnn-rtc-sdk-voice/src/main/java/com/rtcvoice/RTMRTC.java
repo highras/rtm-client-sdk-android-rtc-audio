@@ -157,13 +157,16 @@ public class RTMRTC extends RTMChat{
     /**离开RTC房间
      * @param roomId   房间id
      */
-    public void leaveRTCRoom(final long roomId){
+    public void leaveRTCRoom(final long roomId, final IRTMEmptyCallback callback){
         Quest quest = new Quest("exitRTCRoom");
         quest.param("rid",roomId);
         sendQuest(quest, new FunctionalAnswerCallback() {
             @Override
             public void onAnswer(Answer answer, int errorCode) {
-                RTCEngine.leaveRTCRoom(roomId);
+                if (errorCode == okRet) {
+                    RTCEngine.leaveRTCRoom(roomId);
+                }
+                callback.onResult(genRTMAnswer(answer, errorCode));
             }
         });
     }

@@ -10,6 +10,7 @@ import com.fpnn.sdk.proto.Quest;
 import com.rtcvoice.RTMClient;
 import com.rtcvoice.RTMPushProcessor;
 import com.rtcvoice.RTMStruct;
+import com.rtcvoice.UserInterface;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -19,110 +20,35 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Random;
 
-public class Utils {
-    class ProjectInfo{
-        long pid;
-        String host;
-        ProjectInfo(long _pid, String _host){
-            pid = _pid;
-            host = _host;
-        }
-    }
-
-    public void dispose (){
-        if (rtmClient == null)
-            return;
-        rtmClient.bye();
-        rtmClient.closeRTM();
-        rtmClient = null;
-    }
-
-
-    public Utils(ErrorRecorder _errorRecorder, RTMPushProcessor _serverPush, Activity currentActivity, String address){
-        curraddress = address;
-        errorRecorder = _errorRecorder;
-        serverPush = _serverPush;
-        activity = new WeakReference<>(currentActivity);
-        RTMStruct.RTMAnswer answer = new RTMStruct.RTMAnswer(ErrorCode.FPNN_EC_OK.value(),"");
-
-        if (rtmClient != null && rtmClient.isOnline())
-            return ;
-
-        info = testAddress.get(address);
-        String rtmEndpoint = info.host +  ":" + rtmPort;
-        String rtcEndpoint = info.host +  ":" + rtcPort;
-        uid = getuid();
-        rtmClient = new RTMClient(rtmEndpoint, rtcEndpoint,info.pid, uid, serverPush, activity.get());
-        rtmClient.setErrorRecoder(errorRecorder);
-
-    }
-
-    final HashMap<String, ProjectInfo> testAddress = new HashMap(){{
-            put("test", new ProjectInfo(11000002,"161.189.171.91"));
-            put("nx",new ProjectInfo(80000071,"rtm-nx-front.ilivedata.com"));
-            put("intl",new ProjectInfo(80000087,"rtm-intl-frontgate.ilivedata.com"));
-        }
-    };
-
-    ProjectInfo info;
-    String curraddress;
-    final int rtcPort = 13702;
-    final int rtmPort = 13321;
-    long uid = 0;
+public enum Utils {
+    INSTANCE;
+    String rtcEndpoint = "rtm-nx-front.ilivedata.com:13702";
+    String rtmEndpoint = "rtm-nx-front.ilivedata.com:13321";
     Random rand = new Random();
-    public RTMClient rtmClient;
-    public ErrorRecorder errorRecorder;
+    public ErrorRecorder errorRecorder = new TestErrorRecorder();
     public RTMPushProcessor serverPush;
-    public WeakReference<Activity> activity;
+    public RTMClient client;
+    public long uid;
 
     int getuid() {
         return rand.nextInt(20000 - 1 + 1) + 1;
     }
 
-    RTMStruct.RTMAnswer login(){
-        RTMStruct.RTMAnswer answer = new RTMStruct.RTMAnswer(ErrorCode.FPNN_EC_OK.value(),"");
-        String token = "";
-        if (curraddress.equals("test"))
-            token = getToken();
-        else {
-            token = httpGettoken();
-        }
-        return rtmClient.login(token);
+    public void login(UserInterface.IRTMEmptyCallback callback,Activity activity, RTMPushProcessor _processor){
+        uid = getuid();
+        serverPush = _processor;
+        client = new RTMClient(rtmEndpoint, rtcEndpoint, 80000071, uid, serverPush, activity);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                client.login(callback, getToken());
+            }
+        }).start();
     }
 
-    public  String getToken() {
-        TCPClient kk = TCPClient.create("161.189.171.91:13777", true);
-        Quest ll = new Quest("getUserToken");
-        String gettoken = "";
-        ll.param("pid", info.pid);
-        ll.param("uid", uid);
-        try {
-            Answer ret = kk.sendQuest(ll, 10);
-            if (ret.getErrorCode() == 0) {
-                gettoken = (String)ret.want("token");
-                if (gettoken.isEmpty()) {
-                    errorRecorder.recordError("getUserToken is empty");
-                }
-            } else
-                errorRecorder.recordError("getUserToken failed" + ret.getErrorMessage());
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        kk.close();
-        return gettoken;
-    }
-
-    public  String httpGettoken() {
-        int port = 0;
-        String token = "";
-        if (curraddress.equals("nx"))
-            port = 8090;
-        else if (curraddress.equals("intl"))
-            port = 8091;
-
+    String getToken() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        String tourl = "http://161.189.171.91:" + port + "?uid=" + uid;
-
+        String tourl = "http://161.189.171.91:8090?uid=" + uid;
         try {
             URL url = new URL(tourl);
             HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
@@ -155,4 +81,5 @@ public class Utils {
         }
         return output.toString();
     }
+
 }

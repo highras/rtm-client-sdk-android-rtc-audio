@@ -81,6 +81,9 @@ class AmrBroad implements Runnable {
                     break;
             }
             release();
+            if (RTMAudio.getInstance().audioAction != null){
+                RTMAudio.getInstance().audioAction.broadFinish();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -95,7 +98,7 @@ public class RTMAudio {
             updateMicStatus();
         }
     };
-    private IAudioAction audioAction = null;
+    IAudioAction audioAction = null;
     private String lang = TranscribeLang.EN_US.getName();
     private int gatherInterva = 200;
     //    private AudioTrack mPlayer;

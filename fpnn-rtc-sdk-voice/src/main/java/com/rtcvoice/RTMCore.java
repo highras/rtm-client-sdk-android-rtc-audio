@@ -334,7 +334,6 @@ class RTMCore  extends BroadcastReceiver implements Application.ActivityLifecycl
                         ret.errorMsg = String.valueOf(retmap.get("ex"));
                         rst.errorCode = ret.errorCode;
                         rst.errorMsg = ret.errorMsg;
-
                     }
                     else
                     {
@@ -1011,6 +1010,9 @@ class RTMCore  extends BroadcastReceiver implements Application.ActivityLifecycl
         processor = new RTMQuestProcessor();
         this.serverPushProcessor = serverPushProcessor;
         autoConnect = rtmConfig.autoConnect;
+
+        this.currentActivity = new WeakReference<Activity>(currentActivity);
+
         application = currentActivity.getApplication();
         ClientEngine.setMaxThreadInTaskPool(RTMConfig.globalMaxThread);
         application.registerActivityLifecycleCallbacks(this);
@@ -1211,8 +1213,6 @@ class RTMCore  extends BroadcastReceiver implements Application.ActivityLifecycl
         } catch (IllegalArgumentException e){
         }
         close();
-        rtcClear();
-        RTCEngine.delete();
     }
 
     void sayBye(boolean async) {
