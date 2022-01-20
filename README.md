@@ -24,7 +24,7 @@
 - Add dependency in your module's build.gradle:
     ~~~
     dependencies {
-        implementation 'com.github.highras:rtc-android-audio:2.7.1'
+        implementation 'com.github.highras:rtc-android-audio:2.7.3'
     }
     ~~~
 

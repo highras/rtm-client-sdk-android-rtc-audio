@@ -132,10 +132,15 @@ public class RTMRTC extends RTMChat{
      * 切换扬声器听筒(耳机状态下不操作)(默认扬声器)
      * @param usespeaker true-使用扬声器 false-使用听筒
      */
-    public void switchOutput(boolean usespeaker){
+    public void switchOutput(final boolean usespeaker){
         if (isHeadsetOn())
             return;
-        RTCEngine.switchVoiceOutput(usespeaker);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                RTCEngine.switchVoiceOutput(usespeaker);
+            }
+        }).start();
 //        if (usespeaker)
 //            mAudioManager.setSpeakerphoneOn(true);
 //        else

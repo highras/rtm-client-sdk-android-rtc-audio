@@ -23,6 +23,7 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -30,7 +31,9 @@ import android.widget.ToggleButton;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.ContextCompat;
 
 import com.fpnn.sdk.ErrorRecorder;
 import com.livedata.rtc.RTCEngine;
@@ -50,27 +53,31 @@ public class TestvoiceActivity extends AppCompatActivity {
     RTMPushProcessor voicepush = new RTMVoiceProcessor();
     public TestErrorRecorderVoice voicerecoder = new TestErrorRecorderVoice();
     ConstraintLayout alllayout;
-  //    private int viewHeght;
+    //    private int viewHeght;
 //    private int viewWidth;
-    public  static  boolean running = false;
+    public static boolean running = false;
     boolean micStatus = false;
     boolean usespeaker = true;
-    ImageView leave;
-    ImageView mic;
-    ImageView speaker;
+    LinearLayout leave;
+    LinearLayout mic;
+    LinearLayout speaker;
+    ImageView speakerImageView;
+    ImageView muteImageView;
+    TextView muteTextView;
     long activityRoom = 0;
     Activity myactivity = this;
     TextView roomdshow;
     RTMClient client;
     Utils utils = Utils.INSTANCE;
+
     private <T extends View> T $(int resId) {
         return (T) super.findViewById(resId);
     }
-    
+
     class RTMVoiceProcessor extends RTMPushProcessor {
         String msg = "";
 
-        public boolean reloginWillStart(long uid,  int reloginCount) {
+        public boolean reloginWillStart(long uid, int reloginCount) {
             if (reloginCount >= 10) {
                 return false;
             }
@@ -85,13 +92,13 @@ public class TestvoiceActivity extends AppCompatActivity {
                 client.enterRTCRoom(new UserInterface.IRTMCallback<RTMStruct.RoomInfo>() {
                     @Override
                     public void onResult(RTMStruct.RoomInfo roomInfo, RTMStruct.RTMAnswer answer) {
-                        if (answer.errorCode != 0) {
-                            startVoice(activityRoom);
+                        if (answer.errorCode == 0) {
+                            startVoice(activityRoom, true);
                         } else {
-//                            mylog.log("重新进入失败");
+                            mylog.log("重新进入失败");
                         }
                     }
-                },activityRoom);
+                }, activityRoom);
             } else {
                 mylog.log("重新进入失败");
                 mic.setBackgroundResource(R.drawable.micclose);
@@ -116,6 +123,19 @@ public class TestvoiceActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        leaveRoom();
+    }
+
+    private void leaveRoom() {
+        if (client == null)
+            return;
+        utils.client.leaveRTCRoom(activityRoom, new UserInterface.IRTMEmptyCallback() {
+            @Override
+            public void onResult(RTMStruct.RTMAnswer answer) {
+                client.closeRTM();
+                client = null;
+            }
+        });
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
@@ -138,7 +158,7 @@ public class TestvoiceActivity extends AppCompatActivity {
         super.onConfigurationChanged(newConfig);
     }
 
-    int getLatencyTime(){
+    int getLatencyTime() {
         AudioManager am = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);
         Method m = null;
         try {
@@ -151,29 +171,40 @@ public class TestvoiceActivity extends AppCompatActivity {
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
         }
-        return  0;
+        return 0;
     }
+
     AudioManager am;
+    Toolbar toolbar;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.testvideo);
+        toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        getSupportActionBar().setDisplayShowTitleEnabled(false);
+        customToolbarAndStatusBarBackgroundColor(true);
         mic = $(R.id.mic);
+        muteImageView = $(R.id.muteImageView);
         speaker = $(R.id.speaker);
+        speakerImageView = $(R.id.speakerImageView);
         leave = $(R.id.leave);
+        muteTextView = $(R.id.muteTextView);
         am = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);
         roomdshow = $(R.id.roomnum);
 
-        activityRoom = getIntent().getIntExtra("roomid",0);
+        activityRoom = getIntent().getIntExtra("roomid", 0);
+        speakerImageView.setSelected(true);
 
         utils.login(new UserInterface.IRTMEmptyCallback() {
             @Override
             public void onResult(RTMStruct.RTMAnswer answer) {
-                if (answer.errorCode == 0){
+                if (answer.errorCode == 0) {
                     client = utils.client;
                     RTMStruct.RTMAnswer jj = client.initRTMVoice(false);
-                    if (jj.errorCode != 0 ){
+                    if (jj.errorCode != 0) {
                         mylog.log("初始化 音频失败 " + jj.getErrInfo());
                         return;
                     }
@@ -186,23 +217,10 @@ public class TestvoiceActivity extends AppCompatActivity {
         leave.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                utils.client.leaveRTCRoom(activityRoom, new UserInterface.IRTMEmptyCallback() {
-                    @Override
-                    public void onResult(RTMStruct.RTMAnswer answer) {
-                        client.closeRTM();
-                        client = null;
-                        finish();
-//                        myactivity.runOnUiThread(new Runnable() {
-//                            @Override
-//                            public void run() {
-//                                finish();
-//                            }
-//                        });
-                    }
-                });
+                leaveRoom();
+                finish();
             }
         });
-
 
 
         speaker.setOnClickListener(new View.OnClickListener() {
@@ -247,74 +265,89 @@ public class TestvoiceActivity extends AppCompatActivity {
     }
 
     void closeInput() {
-        InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(this.getWindow().getDecorView().getWindowToken(), 0);
     }
 
-    void setMicStatus(boolean status){
+    void setMicStatus(boolean status) {
         if (!status) {
             client.closeMic();
-            mic.setBackgroundResource(R.drawable.micclose);
+            muteTextView.setText("麦克风关闭");
+            muteImageView.setSelected(true);
         } else {
             client.openMic();
-            mic.setBackgroundResource(R.drawable.micopen);
+            muteTextView.setText("麦克风开启");
+            muteImageView.setSelected(false);
         }
         micStatus = status;
     }
 
-    void setSpeakerStatus(){
+    void setSpeakerStatus() {
         usespeaker = !usespeaker;
-        if (usespeaker)
-            client.switchOutput(true);
-        else
-            client.switchOutput(false);
-
-        if(!usespeaker) {
-            micStatus = false;
-            speaker.setBackgroundResource(R.drawable.speakoff);
+        if (!usespeaker) {
+            speakerImageView.setSelected(false);
+        } else {
+            speakerImageView.setSelected(true);
         }
-        else {
-            speaker.setBackgroundResource(R.drawable.speakon);
-        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (usespeaker)
+                    client.switchOutput(true);
+                else
+                    client.switchOutput(false);
+            }
+        }).start();
     }
 
 
-    void startVoice(long roomId){
+    void startVoice(long roomId) {
+        startVoice(roomId,false);
+    }
+        void startVoice(long roomId, boolean relogin) {
         activityRoom = roomId;
         client.setActivityRoom(activityRoom);
         RTMStruct.RTMAnswer ret = client.setVoiceStat(true);
-        if (ret.errorCode != 0){
+        if (ret.errorCode != 0) {
+            return;
+        }
+        if (relogin){
+            myactivity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    usespeaker = true;
+                    speakerImageView.setSelected(true);
+                }
+            });
             return;
         }
         client.openMic();
         myactivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mic.setBackgroundResource(R.drawable.micopen);
-                speaker.setBackgroundResource(R.drawable.speakon);
+//                mic.setBackgroundResource(R.drawable.micopen);
+//                speaker.setBackgroundResource(R.drawable.speakon);
                 micStatus = true;
                 usespeaker = true;
                 roomdshow.setText("房间id-" + roomId);
+//                speakerImageView.setSelected(true);
             }
         });
     }
 
-    void realEnterRoom(final long roomId){
+    void realEnterRoom(final long roomId) {
         client.enterRTCRoom(new UserInterface.IRTMCallback<RTMStruct.RoomInfo>() {
             @Override
             public void onResult(RTMStruct.RoomInfo info, RTMStruct.RTMAnswer answer) {
                 if (answer.errorCode == 0) {
                     startVoice(roomId);
-                }
-                else{
+                } else {
                     client.createRTCRoom(new UserInterface.IRTMCallback<RTMStruct.RoomInfo>() {
                         @Override
                         public void onResult(RTMStruct.RoomInfo roomInfo, RTMStruct.RTMAnswer answer) {
                             if (answer.errorCode == 0) {
                                 startVoice(roomId);
-                            }
-                            else
-                            {
+                            } else {
                                 client.enterRTCRoom(new UserInterface.IRTMCallback<RTMStruct.RoomInfo>() {
                                     @Override
                                     public void onResult(RTMStruct.RoomInfo roomInfo, RTMStruct.RTMAnswer answer) {
@@ -322,12 +355,42 @@ public class TestvoiceActivity extends AppCompatActivity {
                                             startVoice(roomId);
                                         }
                                     }
-                                },roomId);
+                                }, roomId);
                             }
                         }
-                    },roomId);
+                    }, roomId);
                 }
             }
         }, roomId);
+    }
+
+    protected void customToolbarAndStatusBarBackgroundColor(boolean darkTheme) {
+        int toolbarBackgroundColorResId = darkTheme ? R.color.purple_500 : R.color.white;
+        setTitleBackgroundResource(toolbarBackgroundColorResId, darkTheme);
+    }
+
+    /**
+     * 设置状态栏和标题栏的颜色
+     *
+     * @param resId 颜色资源id
+     */
+    protected void setTitleBackgroundResource(int resId, boolean dark) {
+        toolbar.setBackgroundResource(resId);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setStatusBarColor(ContextCompat.getColor(this, resId));
+        }
+        setStatusBarTheme(this, dark);
+    }
+
+    /**
+     * Changes the System Bar Theme.
+     */
+    public static void setStatusBarTheme(final Activity pActivity, final boolean pIsDark) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Fetch the current flags.
+            final int lFlags = pActivity.getWindow().getDecorView().getSystemUiVisibility();
+            // Update the SystemUiVisibility dependening on whether we want a Light or Dark theme.
+            pActivity.getWindow().getDecorView().setSystemUiVisibility(pIsDark ? (lFlags & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) : (lFlags | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR));
+        }
     }
 }

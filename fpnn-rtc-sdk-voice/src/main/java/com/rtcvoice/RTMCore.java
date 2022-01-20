@@ -334,6 +334,7 @@ class RTMCore  extends BroadcastReceiver implements Application.ActivityLifecycl
                         ret.errorMsg = String.valueOf(retmap.get("ex"));
                         rst.errorCode = ret.errorCode;
                         rst.errorMsg = ret.errorMsg;
+
                     }
                     else
                     {
@@ -1493,7 +1494,7 @@ class RTMCore  extends BroadcastReceiver implements Application.ActivityLifecycl
         if (attr != null)
             qt.param("attrs", attr);
         try {
-            Answer answer = rtmGate.sendQuest(qt);
+            Answer answer = rtmGate.sendQuest(qt, rtmConfig.globalQuestTimeoutSeconds);
 
             if (answer  == null || answer.getErrorCode() != okRet) {
                 closeStatus();
@@ -1558,7 +1559,7 @@ class RTMCore  extends BroadcastReceiver implements Application.ActivityLifecycl
                     callback.onResult(genRTMAnswer(RTMErrorCode.RTM_EC_UNKNOWN_ERROR.value(),"when auth " + e.getMessage()));
                 }
             }
-        }, 0);
+        }, rtmConfig.globalQuestTimeoutSeconds);
     }
 
     void login(final IRTMEmptyCallback callback, final String token, final String lang, final Map<String, String> attr) {
